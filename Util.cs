@@ -61,8 +61,8 @@ namespace ShippingChecker
             string html = string.Empty;
             JObject json;
             html = DownloadWeb("/api/token/request",
-                "apiKey=" + "11" +
-                "&secretKey=" + "22");
+                "apiKey=" + "1234" +
+                "&secretKey=" + "5678");
             json = JObject.Parse(html);
             if ((bool)json["success"])
             {
