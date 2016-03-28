@@ -8,12 +8,19 @@ namespace ShippingChecker
 {
     public class Product
     {
+        private string id;
         private string name;
         private string sku;
         private string barcode;
         private int qty = 0;
         private int count = 0;
         private int rowIndex = 0;
+
+        public string Id
+        {
+            get { return id; }
+            set { id = value; }
+        }
 
         public string Name
         {

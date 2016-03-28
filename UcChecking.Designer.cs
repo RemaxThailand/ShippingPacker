@@ -109,6 +109,7 @@
             this.btnSave.TabIndex = 14;
             this.btnSave.Text = "บันทึกข้อมูล";
             this.btnSave.UseVisualStyleBackColor = false;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // btnCancel
             // 
@@ -138,6 +139,7 @@
             this.btnPrint.TabIndex = 16;
             this.btnPrint.Text = "พิมพ์ใบปะหน้า";
             this.btnPrint.UseVisualStyleBackColor = false;
+            this.btnPrint.Click += new System.EventHandler(this.btnPrint_Click);
             // 
             // panel3
             // 
@@ -395,7 +397,7 @@
             this.table1.SelectionBackColor = System.Drawing.Color.Black;
             this.table1.SelectionForeColor = System.Drawing.Color.DarkOrange;
             this.table1.SelectionStyle = XPTable.Models.SelectionStyle.Grid;
-            this.table1.Size = new System.Drawing.Size(1006, 638);
+            this.table1.Size = new System.Drawing.Size(2006, 638);
             this.table1.TabIndex = 3;
             this.table1.TableModel = this.tableModel1;
             this.table1.Text = "table1";
@@ -428,7 +430,7 @@
             this.textColumn2.Resizable = false;
             this.textColumn2.Sortable = false;
             this.textColumn2.Text = "สินค้า";
-            this.textColumn2.Width = 523;
+            this.textColumn2.Width = 723;
             // 
             // progressBarColumn1
             // 

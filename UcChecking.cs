@@ -12,6 +12,9 @@ using XPTable.Models;
 using System.Net;
 using Newtonsoft.Json.Linq;
 using System.Media;
+using System.Threading;
+using System.Drawing.Printing;
+using System.Configuration;
 
 namespace ShippingChecker
 {
@@ -80,11 +83,26 @@ namespace ShippingChecker
             tableModel1.RowHeight = 28;
 
             var sumQty = 0;
+            var sumChecked = 0;
             for (int i = 0; i < Util.orderId.Count; i++)
             {
+
+                DataTable dt = Util.DBQuery("SELECT serial, isChecked FROM SellDetail WHERE orderNo = \'" + Util.orderNo + "\' AND product = \'" + Util.orderDict[Util.orderId[i]].Id + "\'");
+
+                int cnt = 0;
+                for (int x = 0; x < dt.Rows.Count; x++)
+                {
+                    if ((bool)dt.Rows[x]["isChecked"])
+                    {
+                        Util.orderDict[Util.orderId[i]].Count++;
+                        sumChecked++;
+                        Util.orderDict[Util.orderId[i]].Barcode += dt.Rows[x]["serial"].ToString() + "|";
+                    }
+                }
+
                 Cell cellProgress = new Cell();
                 cellProgress.Font = new System.Drawing.Font("Calibri", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-                cellProgress.Data = 0;
+                cellProgress.Data = (int)((float)Util.orderDict[Util.orderId[i]].Count / (float)Util.orderDict[Util.orderId[i]].Qty * 100.0);
 
                 tableModel1.Rows.Add(new Row(
                     new Cell[] {
@@ -99,31 +117,40 @@ namespace ShippingChecker
             table1.EndUpdate();
 
             progressBar.Maximum = sumQty;
-            progressBar.Value = 0;
+            progressBar.Value = sumChecked;
+
+            if (progressBar.Value == progressBar.Maximum)
+                RenderSuccess();
+
         }
 
         private void txtBarcode_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
             {
-                if (Util.serialDict.ContainsKey(txtBarcode.Text))
+                var barcode = txtBarcode.Text;
+                DataTable dt = Util.DBQuery("SELECT * FROM SellDetail WHERE orderNo = \'" + Util.orderNo + "\' AND serial = \'" + barcode + "\'");
+                //if (Util.serialDict.ContainsKey(txtBarcode.Text))
+                if (dt.Rows.Count != 0)
                 {
-                    var id = Util.serialDict[txtBarcode.Text];
+                    var id = Util.serialDict[barcode];
                     var row = Util.orderDict[id].RowIndex;
 
-                    if (Util.orderDict[id].Barcode.IndexOf("|" + txtBarcode.Text + "|") == -1)
+                    //if (Util.orderDict[id].Barcode.IndexOf("|" + txtBarcode.Text + "|") == -1)
+                    if (!(bool)dt.Rows[0]["isChecked"])
                     {
                         Util.orderDict[id].Count++;
                         table1.BeginUpdate();
                         table1.TableModel[row, 2].Data = (int)((float)Util.orderDict[id].Count / (float)Util.orderDict[id].Qty * 100.0);
                         table1.EndUpdate();
 
-                        tableModel1.Selections.SelectCells(row, 0, row, 2);
-                        table1.EnsureVisible(row, 0);
-
                         progressBar.Value++;
+                        Util.DBExecute("UPDATE SellDetail SET isChecked = 1 WHERE orderNo = \'" + Util.orderNo + "\' AND serial = \'" + barcode + "\'");
 
-                        Util.orderDict[id].Barcode += txtBarcode.Text + "|";
+                        Thread thread = new Thread(() => Util.DownloadWeb("/order/barcode/checked", "token=" + Util.token + "&barcode=" + barcode));
+                        thread.Start();
+
+                        Util.orderDict[id].Barcode += barcode + "|";
 
                         if (progressBar.Value == progressBar.Maximum)
                             RenderSuccess();
@@ -134,21 +161,24 @@ namespace ShippingChecker
                         simpleSound.Play();
                         MessageBox.Show("มีข้อมูล Barcode นี้ ในระบบแล้วครับ", "ผลการตรวจสอบ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
+
+                    tableModel1.Selections.SelectCells(row, 0, row, 2);
+                    table1.EnsureVisible(row, 0);
                 }
                 else
                 {
-                    if (Util.skuDict.ContainsKey(txtBarcode.Text))
+                    if (Util.skuDict.ContainsKey(barcode))
                     {
-                        var id = Util.skuDict[txtBarcode.Text];
+                        var id = Util.skuDict[barcode];
                         SkuSelect(id, Util.orderDict[id].RowIndex);
 
                     }
                     else
                     {
 
-                        if (Util.barcodeDict.ContainsKey(txtBarcode.Text))
+                        if (Util.barcodeDict.ContainsKey(barcode))
                         {
-                            string[] sp = Util.barcodeDict[txtBarcode.Text].Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+                            string[] sp = Util.barcodeDict[barcode].Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
                             if (sp.Length == 1)
                             {
                                 var id = sp[0].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)[1];
@@ -257,7 +287,7 @@ namespace ShippingChecker
         {
             SoundPlayer simpleSound = new SoundPlayer(@"Source/yahoo.wav");
             simpleSound.Play();
-            table1.Enabled = false;
+            //table1.Enabled = false;
             txtBarcode.Visible = false;
             lblBarcode.Visible = false;
             cbbQty.Focus();
@@ -290,6 +320,41 @@ namespace ShippingChecker
             {
                 Util.LoadScreen("search");
             }
+        }
+
+        private void btnPrint_Click(object sender, EventArgs e)
+        {
+            Util.LoadOrderAddress(Util.orderNo);
+            btnPrint.Enabled = false;
+
+            PaperSize paperSize = new PaperSize();
+            paperSize.RawKind = (int)PaperKind.A4;
+
+            PrintDocument pd = new PrintDocument();
+            pd.DefaultPageSettings.PaperSize = paperSize;
+            pd.PrintController = new System.Drawing.Printing.StandardPrintController();
+            pd.PrinterSettings.PrinterName = ConfigurationManager.AppSettings["PrinterName"]; //"Microsoft Print to PDF";
+            //pd.PrinterSettings.PrinterName = "GP-80250 Series";
+            //pd.PrinterSettings.PrinterName = "POS80";
+
+            int count = int.Parse(cbbQty.SelectedItem.ToString());
+            for (int i = 1; i <= Math.Ceiling((float)count / 2); i++)
+            {
+                pd.PrintPage += (_, g) =>
+                {
+                    Util.PrintAddress(g, Util.orderNo, (i - 1) * 2 + 1, int.Parse(cbbQty.SelectedItem.ToString()), 
+                        (rbSelf.Checked) ? "จัดส่งเอง" : cbbCompany.SelectedItem.ToString(), 
+                        ckbCash.Checked);
+                };
+                pd.Print();
+            }
+
+            btnPrint.Enabled = true;
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
