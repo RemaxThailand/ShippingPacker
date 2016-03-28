@@ -81,8 +81,8 @@ namespace ShippingChecker
             string html = string.Empty;
             JObject json;
             html = DownloadWeb("/api/token/request",
-                "apiKey=" + "11" +
-                "&secretKey=" + "22");
+                "apiKey=" + "1234" +
+                "&secretKey=" + "5678");
             json = JObject.Parse(html);
             if ((bool)json["success"])
             {
@@ -176,8 +176,14 @@ namespace ShippingChecker
                         && barcodeDict.ContainsKey(orderDict[array[i]["id"].ToString()].Barcode))
                         barcodeDict.Remove(orderDict[array[i]["id"].ToString()].Barcode);
 
-                    if (d != 0) sb.Append(" UNION ALL ");
+                    if (d % 100 == 0 && d >= 100)
+                    {
+                        DBExecute(sb.ToString());
+                        sb = new StringBuilder(@"INSERT OR REPLACE INTO SellDetail (orderNo, product, serial, isChecked) ");
+                    }
+                    if (d % 100 != 0) sb.Append(" UNION ALL ");
                     sb.Append(string.Format(@" SELECT '{0}', '{1}', '{2}', {3}", orderNo, array[i]["id"].ToString(), array[i]["serialNo"].ToString(), array[i]["isChecked"].ToString()));
+
                     d++;
 
                 }
